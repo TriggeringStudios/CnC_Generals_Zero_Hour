@@ -48,6 +48,7 @@ private:
 	float Dist2D(const FVector& P) const;
 	bool EngageTarget(AActor* Target);   // chase/shoot; false if target is gone or we can't attack
 	void TickGather();
+	void ApplySeparation();
 
 	UPROPERTY() TObjectPtr<USphereComponent> Root;
 	UPROPERTY() TObjectPtr<UStaticMeshComponent> Mesh;
@@ -61,6 +62,13 @@ private:
 	FVector MoveDir = FVector::ZeroVector;
 	int32 CooldownFrames = 0;
 	TWeakObjectPtr<AActor> AutoTarget;
+	bool bFiring = false;
+
+	// Path following (see URTSPathSubsystem).
+	TArray<FVector> Path;
+	int32 PathIdx = 0;
+	FVector PathGoal = FVector::ZeroVector;
+	int32 LastPathFrame = -1000;
 
 	EGatherPhase Phase = EGatherPhase::ToNode;
 	TWeakObjectPtr<ARTSResourceNode> Node;

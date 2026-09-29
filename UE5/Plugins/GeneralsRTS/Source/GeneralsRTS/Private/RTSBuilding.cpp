@@ -2,6 +2,7 @@
 #include "RTSProductionComponent.h"
 #include "RTSSimSubsystem.h"
 #include "RTSTeamInfo.h"
+#include "RTSPathSubsystem.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -33,6 +34,11 @@ void ARTSBuilding::BeginPlay()
 {
 	Super::BeginPlay();
 	Health = MaxHealth;
+	if (URTSPathSubsystem* Paths = GetWorld()->GetSubsystem<URTSPathSubsystem>())
+	{
+		const FVector E = Box->GetScaledBoxExtent();
+		Paths->AddObstacle(GetActorLocation(), FVector2D(E.X, E.Y));
+	}
 	if (URTSSimSubsystem* Sim = GetWorld()->GetSubsystem<URTSSimSubsystem>())
 	{
 		Sim->RegisterEntity(this);
@@ -50,6 +56,12 @@ void ARTSBuilding::EndPlay(const EEndPlayReason::Type Reason)
 		{
 			Sim->OnSimTick.Remove(SimHandle);
 			Sim->UnregisterEntity(this);
+		}
+	if (UWorld* W2 = GetWorld())
+		if (URTSPathSubsystem* Paths = W2->GetSubsystem<URTSPathSubsystem>())
+		{
+			const FVector E = Box->GetScaledBoxExtent();
+			Paths->RemoveObstacle(GetActorLocation(), FVector2D(E.X, E.Y)); // structure gone: open the lane
 		}
 	Super::EndPlay(Reason);
 }

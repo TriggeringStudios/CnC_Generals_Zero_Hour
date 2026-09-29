@@ -4,6 +4,7 @@
 #include "RTSEconomyComponent.h"
 #include "RTSResourceNode.h"
 #include "RTSBuilding.h"
+#include "RTSPathSubsystem.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -117,7 +118,31 @@ float ARTSUnit::Dist2D(const FVector& P) const { return FVector::Dist2D(GetActor
 
 void ARTSUnit::SteerTo(const FVector& Dest)
 {
-	FVector D = Dest - GetActorLocation();
+	URTSSimSubsystem* Sim = GetWorld()->GetSubsystem<URTSSimSubsystem>();
+	URTSPathSubsystem* Paths = GetWorld()->GetSubsystem<URTSPathSubsystem>();
+	const FVector Me = GetActorLocation();
+	FVector Aim = Dest;
+
+	if (Paths && !Paths->HasLineOfSight(Me, Dest))
+	{
+		// Something is in the way: (re)path if we have no path, the goal moved, or we were told to.
+		const bool bStale = Path.IsEmpty() || FVector::Dist2D(PathGoal, Dest) > URTSPathSubsystem::CellSize * 2.5f;
+		if (bStale && Sim->GetFrame() - LastPathFrame >= 10 && Paths->ConsumeBudget())
+		{
+			LastPathFrame = Sim->GetFrame();
+			PathGoal = Dest;
+			PathIdx = 0;
+			if (!Paths->FindPath(Me, Dest, Path)) Path.Reset();
+		}
+		while (PathIdx < Path.Num() - 1 && Dist2D(Path[PathIdx]) < ArriveRadius + 20.f) ++PathIdx;
+		if (Path.IsValidIndex(PathIdx)) Aim = Path[PathIdx];
+	}
+	else
+	{
+		Path.Reset(); // clear shot: go straight
+	}
+
+	FVector D = Aim - Me;
 	D.Z = 0.f;
 	MoveDir = D.GetSafeNormal();
 }
@@ -134,6 +159,7 @@ bool ARTSUnit::EngageTarget(AActor* Target)
 	}
 	// In range: stop and shoot.
 	MoveDir = FVector::ZeroVector;
+	bFiring = true;
 	FVector Face = Target->GetActorLocation() - GetActorLocation();
 	Face.Z = 0.f;
 	if (!Face.IsNearlyZero()) SetActorRotation(Face.Rotation());
@@ -155,6 +181,7 @@ void ARTSUnit::SimTick()
 	if (!Sim) return;
 	if (CooldownFrames > 0) --CooldownFrames;
 	MoveDir = FVector::ZeroVector;
+	bFiring = false;
 
 	if (!bHasOrder)
 	{
@@ -166,6 +193,7 @@ void ARTSUnit::SimTick()
 				AutoTarget = Sim->FindNearestEnemy(GetActorLocation(), TeamId, Stats.AcquireRange);
 			if (AutoTarget.IsValid()) EngageTarget(AutoTarget.Get());
 		}
+		ApplySeparation();
 		return;
 	}
 
@@ -196,6 +224,18 @@ void ARTSUnit::SimTick()
 		NextOrder();
 		break;
 	}
+
+	ApplySeparation();
+}
+
+void ARTSUnit::ApplySeparation()
+{
+	// Moving units steer around each other; parked units get nudged apart (but not while mining).
+	URTSSimSubsystem* Sim = GetWorld()->GetSubsystem<URTSSimSubsystem>();
+	const FVector Push = Sim->GetSeparation(this, Root->GetScaledSphereRadius() * 2.2f);
+	if (!MoveDir.IsNearlyZero()) MoveDir = (MoveDir + Push * 1.2f).GetSafeNormal();
+	else if (!bFiring && !Push.IsNearlyZero() && !(bHasOrder && Current.Type == ERTSCommandType::Gather))
+		MoveDir = Push.GetSafeNormal() * 0.4f;
 }
 
 void ARTSUnit::TickGather()

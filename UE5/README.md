@@ -32,11 +32,12 @@ engine version 5.8 not checked against headers). Expect a round of compile fixes
 | Harvest loop | `ARTSUnit::TickGather`, `ARTSResourceNode`, depot buildings, `URTSEconomyComponent` | `SupplyTruckAIUpdate`, `DockUpdate`, `Money` |
 | Production | `URTSProductionComponent` (queue, cost, refund, rally) | `ProductionUpdate` |
 | Combat | auto-acquire, chase, cooldown-based attacks | `AIStates`, `Weapon` |
+| Pathfinding | `RTSPathSubsystem` (sparse-grid A*, line-of-sight smoothing, per-frame budget) | `AIPathfind` |
 | Skirmish AI | `URTSSkirmishAI`: worker upkeep, unit rotation, growing attack waves, base defense | `AIPlayer`, `AISkirmishPlayer` |
 
 ## Known gaps / next steps (in priority order)
 1. **Compile and playtest**; fix inevitable API issues.
-2. **Pathfinding + crowd separation**: units currently steer in straight lines and overlap.
+2. ~~Pathfinding + crowd separation~~ done (grid A*, buildings block, string-pulled paths, spatial-hash separation). Still to do: terrain slopes/water, moving-unit avoidance in tight chokepoints, chunked hierarchical search for the huge map.
 3. **Base building** (dozer/worker placing structures) and tech requirements/upgrades.
 4. **Scale for a massive map and huge armies**: swap per-unit actors for MassEntity, spatial-grid queries
    instead of linear scans, flow-field pathing, World Partition streaming, fog of war.

@@ -4,6 +4,8 @@
 #include "RTSTeamInfo.h"
 #include "RTSResourceNode.h"
 #include "RTSBuilding.h"
+#include "RTSUnit.h"
+#include "RTSPathSubsystem.h"
 
 void URTSSimSubsystem::Tick(float DeltaTime)
 {
@@ -14,6 +16,8 @@ void URTSSimSubsystem::Tick(float DeltaTime)
 		Accumulator -= RTS_LOGIC_DT;
 		++Frame;
 		++Steps;
+		if (URTSPathSubsystem* Paths = GetWorld()->GetSubsystem<URTSPathSubsystem>()) Paths->ResetBudget();
+		RebuildUnitHash();
 		OnSimTick.Broadcast();
 	}
 	if (Steps == 4) Accumulator = 0.f;
@@ -77,4 +81,41 @@ ARTSBuilding* URTSSimSubsystem::FindNearestDepot(const FVector& From, int32 Team
 		if (D < BestSq) { BestSq = D; Best = B; }
 	}
 	return Best;
+}
+
+void URTSSimSubsystem::RebuildUnitHash()
+{
+	UnitHash.Reset();
+	for (const TWeakObjectPtr<AActor>& P : Entities)
+		if (ARTSUnit* U = Cast<ARTSUnit>(P.Get()))
+		{
+			const FVector L = U->GetActorLocation();
+			UnitHash.FindOrAdd(FIntPoint(FMath::FloorToInt(L.X / HashCell), FMath::FloorToInt(L.Y / HashCell))).Add(U);
+		}
+}
+
+FVector URTSSimSubsystem::GetSeparation(const AActor* Self, float Radius) const
+{
+	const FVector Me = Self->GetActorLocation();
+	const int32 Reach = FMath::CeilToInt(Radius / HashCell);
+	const FIntPoint C(FMath::FloorToInt(Me.X / HashCell), FMath::FloorToInt(Me.Y / HashCell));
+	FVector Push = FVector::ZeroVector;
+	for (int32 X = -Reach; X <= Reach; ++X)
+		for (int32 Y = -Reach; Y <= Reach; ++Y)
+		{
+			const TArray<AActor*>* Bucket = UnitHash.Find(FIntPoint(C.X + X, C.Y + Y));
+			if (!Bucket) continue;
+			for (AActor* O : *Bucket)
+			{
+				if (O == Self || !IsValid(O)) continue;
+				FVector Away = Me - O->GetActorLocation();
+				Away.Z = 0.f;
+				const float D = Away.Size();
+				if (D >= Radius) continue;
+				// Exactly stacked units get a deterministic nudge so they can separate.
+				if (D < 1.f) Away = FVector(FMath::Sign(float(Self->GetUniqueID() & 1) - 0.5f), 1.f, 0.f);
+				Push += Away.GetSafeNormal() * (1.f - D / Radius);
+			}
+		}
+	return Push;
 }

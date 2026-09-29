@@ -36,10 +36,16 @@ public:
 	ARTSResourceNode* FindNearestNode(const FVector& From) const;
 	ARTSBuilding* FindNearestDepot(const FVector& From, int32 TeamId) const;
 
+	/** Push-away vector from nearby units (zero if none). Uses a hash rebuilt every sim frame. */
+	FVector GetSeparation(const AActor* Self, float Radius) const;
+
 private:
 	float Accumulator = 0.f;
 	int32 Frame = 0;
 	TArray<TWeakObjectPtr<AActor>> Entities;
 	TArray<TWeakObjectPtr<ARTSResourceNode>> Nodes;
 	TMap<int32, TWeakObjectPtr<ARTSTeamInfo>> Teams;
+	static constexpr float HashCell = 300.f;
+	TMap<FIntPoint, TArray<AActor*>> UnitHash;
+	void RebuildUnitHash();
 };
