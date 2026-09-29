@@ -1,0 +1,8 @@
+{
+  "FileVersion": 3,
+  "FriendlyName": "Generals RTS",
+  "Description": "RTS gameplay framework: controls, harvesting, production, skirmish AI.",
+  "Category": "Gameplay",
+  "CanContainContent": true,
+  "Modules": [ { "Name": "GeneralsRTS", "Type": "Runtime", "LoadingPhase": "Default" } ]
+}
