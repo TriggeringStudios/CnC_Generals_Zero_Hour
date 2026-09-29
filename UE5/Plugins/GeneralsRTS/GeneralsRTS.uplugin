@@ -1,0 +1,15 @@
+{
+  "FileVersion": 3,
+  "FriendlyName": "Generals RTS",
+  "Description": "RTS framework adapted from C&C Generals: Zero Hour gameplay systems.",
+  "Category": "Gameplay",
+  "CanContainContent": true,
+  "Modules": [
+    { "Name": "GeneralsRTS", "Type": "Runtime", "LoadingPhase": "Default" }
+  ],
+  "Plugins": [
+    { "Name": "MassEntity", "Enabled": true },
+    { "Name": "MassGameplay", "Enabled": true },
+    { "Name": "StateTree", "Enabled": true }
+  ]
+}
