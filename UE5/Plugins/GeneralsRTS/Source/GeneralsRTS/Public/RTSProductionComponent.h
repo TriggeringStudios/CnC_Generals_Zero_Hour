@@ -5,9 +5,8 @@
 #include "RTSProductionComponent.generated.h"
 
 /**
- * Build queue on a factory (ProductionUpdate). Cost is charged progressively in the
- * original; here it is charged up front and refunded on cancel (a deliberate simplification
- * to revisit). Ticked by the fixed-step sim, not by frame delta.
+ * Factory build queue (ProductionUpdate in the original). Cost is charged up front and refunded
+ * on cancel. SimTick is driven by the owning building on the fixed 30 Hz step.
  */
 UCLASS(ClassGroup=RTS, meta=(BlueprintSpawnableComponent))
 class GENERALSRTS_API URTSProductionComponent : public UActorComponent
@@ -16,16 +15,22 @@ class GENERALSRTS_API URTSProductionComponent : public UActorComponent
 public:
 	UPROPERTY(EditAnywhere) TObjectPtr<URTSObjectDefinition> Definition;
 	UPROPERTY(EditAnywhere) int32 MaxQueue = 5;
-	UPROPERTY(EditAnywhere) FVector RallyPoint = FVector::ZeroVector;
+	FVector RallyPoint = FVector::ZeroVector;
+	bool bHasRally = false;
 
 	UFUNCTION(BlueprintCallable) bool QueueUnit(FName ObjectName);
 	UFUNCTION(BlueprintCallable) bool CancelLast();
-	/** Advance one logic frame (1/RTS_LOGIC_FPS s). */
 	void SimTick();
-protected:
-	virtual void OnUnitFinished(const FRTSProductionEntry& Entry);
+
+	int32 GetQueueCount() const { return Queue.Num(); }
+	int32 CountQueued(ERTSUnitRole Role) const;
+	float GetProgress01() const; // front of queue
+	FName GetFrontName() const { return Queue.Num() ? Queue[0].Entry.ObjectName : NAME_None; }
+
+	/** Spawns a fully configured unit for a team. Shared by factories and initial base setup. */
+	static class ARTSUnit* SpawnUnit(UWorld* World, const FRTSProductionEntry& Entry, int32 TeamId, const FVector& Location);
 private:
-	const FRTSProductionEntry* Find(FName ObjectName) const;
-	struct FJob { FRTSProductionEntry Entry; int32 FramesLeft; };
+	struct FJob { FRTSProductionEntry Entry; int32 TotalFrames; int32 FramesLeft; };
 	TArray<FJob> Queue;
+	void Finish(const FRTSProductionEntry& Entry);
 };
